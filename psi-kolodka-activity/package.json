@@ -1,0 +1,20 @@
+{
+  "name": "psi-kolodka-activity",
+  "version": "1.0.0",
+  "description": "Bitrix24 bizproc activity: OCR of PSI protocols for kolodka lokomotivnaya grebnevaya into the \"Показатели плавок\" smart-process",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "install-activity": "node install.js",
+    "test:recognition": "node scripts/testRecognition.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "axios": "^1.7.7",
+    "sharp": "^0.33.5",
+    "pdf2pic": "^3.1.4",
+    "pdf-parse": "^1.1.1",
+    "form-data": "^4.0.0",
+    "dotenv": "^16.4.5"
+  }
+}

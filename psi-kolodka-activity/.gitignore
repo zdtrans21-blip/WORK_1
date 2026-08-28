@@ -1,0 +1,4 @@
+node_modules/
+.env
+test-data/*.pdf
+test-data/output-page-*.png
