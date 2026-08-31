@@ -107,7 +107,11 @@ function buildActivityBody(appUrl) {
       'Скачивает PDF протокола ПСИ из поля смарт-процесса, распознаёт химический состав и микроструктуру через LLM, валидирует соответствие нормам, записывает данные в поля карточки.',
     handler,
     authUserId: 1,
-    useSubscription: 'N',
+    // 'Y' = "Ожидание ответа" checkbox in the BP designer is user-editable
+    // and (checked) blocks downstream nodes until bizproc.event.send fires —
+    // matches how this activity actually completes (immediate HTTP ack,
+    // real result delivered later via event_token).
+    useSubscription: 'Y',
     properties: buildProperties(),
     returnProperties: buildReturnProperties(),
     documentType: ['crm', 'Bitrix\\Crm\\Integration\\BizProc\\Document\\Dynamic', 'DYNAMIC_1068'],
