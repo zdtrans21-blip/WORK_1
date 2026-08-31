@@ -9,15 +9,19 @@ function toNumber(str) {
  * numeric [min, max] range. Returns null when the string doesn't match any
  * known pattern — deviation cannot be computed for such an element.
  *
- *   "2,6–3,5"        -> { min: 2.6, max: 3.5 }
- *   "не более 0,22"  -> { min: null, max: 0.22 }
- *   "≤0,22"          -> { min: null, max: 0.22 }
- *   "не менее 0,05"  -> { min: 0.05, max: null }
- *   "≥0,05"          -> { min: 0.05, max: null }
+ *   "2,6–3,5"           -> { min: 2.6, max: 3.5 }
+ *   "2,7-3,4 (±0,1)"    -> { min: 2.7, max: 3.4 }  (trailing tolerance note dropped)
+ *   "не более 0,22"     -> { min: null, max: 0.22 }
+ *   "≤0,22"             -> { min: null, max: 0.22 }
+ *   "не менее 0,05"     -> { min: 0.05, max: null }
+ *   "≥0,05"             -> { min: 0.05, max: null }
  */
 function parseNormRange(normRaw) {
   if (normRaw === null || normRaw === undefined) return null;
-  const norm = String(normRaw).trim();
+  // Protocols sometimes append a tolerance note in parentheses after the
+  // range itself, e.g. "2,7-3,4 (±0,1)" — it's not part of the min/max and
+  // would otherwise block the anchored min-max match below.
+  const norm = String(normRaw).trim().replace(/\s*\([^)]*\)\s*$/, '');
   const NUM = '(\\d+(?:[.,]\\d+)?)';
 
   let m = norm.match(new RegExp(`(?:не\\s*более|≤|<=)\\s*${NUM}`, 'i'));
