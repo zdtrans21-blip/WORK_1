@@ -55,9 +55,9 @@ async function main() {
   console.log(warnings.length > 0 ? warnings.join(', ') : '(none)');
 
   const rows = buildRows({ chemistry, microstructure: parsed.data.microstructure, microstructureStatus });
-  console.log('\n=== return_values.report_full (HTML) ===');
+  console.log('\n=== return_values.report_full ===');
   console.log(buildFullReport(rows));
-  console.log('\n=== return_values.report_deviations (HTML) ===');
+  console.log('\n=== return_values.report_deviations ===');
   console.log(buildDeviationsReport(rows));
 }
 

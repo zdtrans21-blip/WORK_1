@@ -29,13 +29,6 @@ const MICRO_RANGE_LABELS = {
   perlite_dispersion: ['Перлит, дисперсность (мкм)', 'fact_value'],
 };
 
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
 function isDeviation(dev) {
   return dev !== null && dev !== undefined && dev !== 'в норме';
 }
@@ -101,26 +94,24 @@ function buildRows({ chemistry, microstructure, microstructureStatus }) {
   return rows;
 }
 
-/** Renders one row as "Label: норма X, факт Y, отклонение: <b>...</b>". */
+/** Renders one row as plain text: "✅/⚠️ Label: норма X, факт Y, отклонение: ...". */
 function renderRow(row) {
-  const devText = row.dev === null || row.dev === undefined ? '—' : escapeHtml(row.dev);
-  const devHtml = isDeviation(row.dev)
-    ? `<b style="color:red">${devText}</b>`
-    : `<b>${devText}</b>`;
-  return `${escapeHtml(row.label)}: норма ${escapeHtml(String(row.norm))}, факт ${escapeHtml(String(row.fact))}, отклонение: ${devHtml}`;
+  const devText = row.dev === null || row.dev === undefined ? '—' : row.dev;
+  const icon = row.dev === null || row.dev === undefined ? 'ℹ️' : isDeviation(row.dev) ? '⚠️' : '✅';
+  return `${icon} ${row.label}: норма ${row.norm}, факт ${row.fact}, отклонение: ${devText}`;
 }
 
-/** Full report — every parameter that has a norm, one per line (HTML, <br> separated). */
+/** Full report — every parameter that has a norm, one per line (plain text). */
 function buildFullReport(rows) {
   if (rows.length === 0) return '';
-  return rows.map(renderRow).join('<br>\n');
+  return rows.map(renderRow).join('\n');
 }
 
 /** Deviations-only report — just the parameters that are out of norm. */
 function buildDeviationsReport(rows) {
   const deviated = rows.filter((row) => isDeviation(row.dev));
-  if (deviated.length === 0) return 'Отклонений не выявлено';
-  return deviated.map(renderRow).join('<br>\n');
+  if (deviated.length === 0) return '✅ Отклонений не выявлено';
+  return deviated.map(renderRow).join('\n');
 }
 
 module.exports = { buildRows, buildFullReport, buildDeviationsReport };
