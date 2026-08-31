@@ -5,6 +5,7 @@ const { pdfToProcessedPages } = require('../services/pdfProcessor');
 const { recognizeProtocol } = require('../services/llm');
 const { parseLlmResponse } = require('../services/parser');
 const { validate } = require('../services/validator');
+const { buildRows, buildFullReport, buildDeviationsReport } = require('../services/reportBuilder');
 
 const TEST_DATA_DIR = path.join(__dirname, '..', 'test-data');
 const PDF_PATH = path.join(TEST_DATA_DIR, 'test-protocol.pdf');
@@ -52,6 +53,12 @@ async function main() {
   console.log(JSON.stringify(microstructureStatus, null, 2));
   console.log('\n=== Warnings (low/missing confidence) ===');
   console.log(warnings.length > 0 ? warnings.join(', ') : '(none)');
+
+  const rows = buildRows({ chemistry, microstructure: parsed.data.microstructure, microstructureStatus });
+  console.log('\n=== return_values.report_full (HTML) ===');
+  console.log(buildFullReport(rows));
+  console.log('\n=== return_values.report_deviations (HTML) ===');
+  console.log(buildDeviationsReport(rows));
 }
 
 function requireEnv(name) {

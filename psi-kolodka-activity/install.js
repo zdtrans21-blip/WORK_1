@@ -85,14 +85,22 @@ function buildReturnProperties() {
     ocr_status: { Name: 'Статус распознавания', Type: 'string' },
     ocr_warnings: { Name: 'Поля под сомнением', Type: 'string' },
     error_message: { Name: 'Текст ошибки', Type: 'string' },
+    report_full: {
+      Name: 'Отчёт: все параметры (норма/факт/отклонение)',
+      Type: 'text',
+      Description: 'Каждый параметр с нормой на отдельной строке: название, норма, факт, отклонение. Значение отклонения выделено HTML-разметкой (жирным, при наличии отклонения — красным) — подходит для вставки в письмо или комментарий, поддерживающий HTML.',
+    },
+    report_deviations: {
+      Name: 'Отчёт: только отклонения от нормы',
+      Type: 'text',
+      Description: 'То же самое, но только параметры, у которых факт вышел за пределы нормы. Если отклонений нет — текст "Отклонений не выявлено".',
+    },
   };
 }
 
-/** Registers the activity via VibeCode's bizproc-activities wrapper (POST /v1/bizproc-activities). */
-async function registerActivity({ appKey, sessionToken, appUrl }) {
+function buildActivityBody(appUrl) {
   const handler = `${appUrl.replace(/\/$/, '')}/handler`;
-
-  const body = {
+  return {
     code: ACTIVITY_CODE,
     name: { ru: '🔬 ПСИ Колодка: распознать протокол', en: '🔬 PSI Kolodka: recognize protocol' },
     description:
@@ -104,16 +112,33 @@ async function registerActivity({ appKey, sessionToken, appUrl }) {
     returnProperties: buildReturnProperties(),
     documentType: ['crm', 'Bitrix\\Crm\\Integration\\BizProc\\Document\\Dynamic', 'DYNAMIC_1068'],
   };
+}
 
-  const { data } = await axios.post(`${VIBECODE_BASE}/v1/bizproc-activities`, body, {
-    headers: {
-      'X-Api-Key': appKey,
-      Authorization: `Bearer ${sessionToken}`,
-      'Content-Type': 'application/json',
-    },
-  });
+/**
+ * Registers or updates the activity via VibeCode's bizproc-activities
+ * wrapper. Tries PATCH (update) first since re-running install.js after the
+ * initial deploy is the common case (e.g. adding new returnProperties) —
+ * falls back to POST (create) the first time, when the activity doesn't
+ * exist yet.
+ */
+async function registerActivity({ appKey, sessionToken, appUrl }) {
+  const body = buildActivityBody(appUrl);
+  const headers = {
+    'X-Api-Key': appKey,
+    Authorization: `Bearer ${sessionToken}`,
+    'Content-Type': 'application/json',
+  };
 
-  return data;
+  try {
+    const { data } = await axios.patch(`${VIBECODE_BASE}/v1/bizproc-activities/${ACTIVITY_CODE}`, body, { headers });
+    return data;
+  } catch (err) {
+    const code = err.response?.data?.error?.code;
+    if (err.response?.status !== 404 && code !== 'NOT_FOUND') throw err;
+    console.log('Активити ещё не зарегистрировано — создаю (PATCH вернул "не найдено").');
+    const { data } = await axios.post(`${VIBECODE_BASE}/v1/bizproc-activities`, body, { headers });
+    return data;
+  }
 }
 
 async function main() {

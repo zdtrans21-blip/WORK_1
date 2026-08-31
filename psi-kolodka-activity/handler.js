@@ -4,6 +4,7 @@ const { recognizeProtocol } = require('./services/llm');
 const { parseLlmResponse } = require('./services/parser');
 const { validate } = require('./services/validator');
 const { mapToBitrixFields } = require('./services/fieldMapper');
+const { buildRows, buildFullReport, buildDeviationsReport } = require('./services/reportBuilder');
 
 const ENTITY_TYPE_ID = 1068;
 const SOURCE_PDF_FIELD_DEFAULT = 'UF_CRM_66_SOURCE_PDF';
@@ -45,6 +46,8 @@ async function handleActivityRequest(req, res) {
   let ocrStatus = 'error';
   let warnings = [];
   let errorMessage = '';
+  let reportFull = '';
+  let reportDeviations = '';
 
   try {
     if (!domain || !accessToken || !eventToken) {
@@ -67,6 +70,8 @@ async function handleActivityRequest(req, res) {
     ocrStatus = result.ocrStatus;
     warnings = result.warnings;
     errorMessage = result.errorMessage || '';
+    reportFull = result.reportFull || '';
+    reportDeviations = result.reportDeviations || '';
   } catch (err) {
     ocrStatus = 'error';
     errorMessage = err.message;
@@ -83,6 +88,8 @@ async function handleActivityRequest(req, res) {
         ocr_status: ocrStatus,
         ocr_warnings: warnings.join(', '),
         error_message: errorMessage,
+        report_full: reportFull,
+        report_deviations: reportDeviations,
       },
     );
   } catch (sendErr) {
@@ -130,6 +137,10 @@ async function recognizeAndFillItem({ domain, accessToken, itemId, sourceField, 
     warnings,
   });
 
+  const reportRows = buildRows({ chemistry, microstructure: parsed.data.microstructure, microstructureStatus });
+  const reportFull = buildFullReport(reportRows);
+  const reportDeviations = buildDeviationsReport(reportRows);
+
   try {
     await bitrix.updateSmartProcessItem(domain, accessToken, ENTITY_TYPE_ID, itemId, fields);
   } catch (updateErr) {
@@ -138,6 +149,8 @@ async function recognizeAndFillItem({ domain, accessToken, itemId, sourceField, 
       ocrStatus: 'partial',
       warnings,
       errorMessage: `Recognition succeeded but crm.item.update failed: ${updateErr.message}`,
+      reportFull,
+      reportDeviations,
     };
   }
 
@@ -146,6 +159,8 @@ async function recognizeAndFillItem({ domain, accessToken, itemId, sourceField, 
     ocrStatus: warnings.length > 0 ? 'partial' : 'success',
     warnings,
     errorMessage: '',
+    reportFull,
+    reportDeviations,
   };
 }
 
