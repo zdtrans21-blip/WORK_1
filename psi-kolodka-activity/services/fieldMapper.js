@@ -32,13 +32,17 @@ function mapGeneral(general, fields) {
   setNumberIfPresent(fields, 'UF_CRM_66_QUANTITY', general.quantity);
 }
 
-function mapChemistry(chemistry, fields) {
+function mapChemistry(chemistry, fields, normLocked) {
   if (!chemistry) return;
   for (const el of CHEM_ELEMENTS) {
     const entry = chemistry[el];
     if (!entry || entry.norm === null || entry.norm === undefined) continue;
     const upper = el.toUpperCase();
-    setIfPresent(fields, `UF_CRM_66_CHEM_${upper}_NORM`, entry.norm);
+    // Norm is protected once the item already has one — see normMerge.js.
+    // Fact and deviation are always refreshed from this recognition run.
+    if (!normLocked?.has(el)) {
+      setIfPresent(fields, `UF_CRM_66_CHEM_${upper}_NORM`, entry.norm);
+    }
     setNumberIfPresent(fields, `UF_CRM_66_CHEM_${upper}_FACT`, entry.fact);
     setIfPresent(fields, `UF_CRM_66_CHEM_${upper}_DEV`, entry.dev);
   }
@@ -68,12 +72,16 @@ function setArrayIfPresent(fields, code, value) {
   if (cleaned.length > 0) fields[code] = cleaned;
 }
 
-function mapMicrostructure(microstructure, microstructureStatus, fields) {
+function mapMicrostructure(microstructure, microstructureStatus, fields, normLocked) {
   if (!microstructure) return;
   for (const { param, normKey, normField, factKey, factField, devField } of MICRO_FIELD_MAP) {
     const entry = microstructure[param];
     if (entry) {
-      setArrayIfPresent(fields, normField, entry[normKey]);
+      // Norm is protected once the item already has one — see normMerge.js.
+      // Fact and deviation are always refreshed from this recognition run.
+      if (!normLocked?.has(param)) {
+        setArrayIfPresent(fields, normField, entry[normKey]);
+      }
       setArrayIfPresent(fields, factField, entry[factKey]);
     }
     if (devField) {
@@ -85,15 +93,18 @@ function mapMicrostructure(microstructure, microstructureStatus, fields) {
 /**
  * Builds the `fields` payload for crm.item.update from a validated
  * recognition result. Only fields with a non-null value are included.
+ * `chemNormLocked`/`microNormLocked` (Sets, from normMerge.js) name the
+ * elements/params whose `_NORM` field already had a value and must not be
+ * overwritten by this run.
  */
-function mapToBitrixFields({ general, chemistry, microstructure, microstructureStatus, ocrStatus, warnings }) {
+function mapToBitrixFields({ general, chemistry, microstructure, microstructureStatus, ocrStatus, warnings, chemNormLocked, microNormLocked }) {
   const fields = {};
   mapGeneral(general, fields);
-  mapChemistry(chemistry, fields);
-  mapMicrostructure(microstructure, microstructureStatus, fields);
+  mapChemistry(chemistry, fields, chemNormLocked);
+  mapMicrostructure(microstructure, microstructureStatus, fields, microNormLocked);
   setIfPresent(fields, 'UF_CRM_66_OCR_STATUS', ocrStatus ? [ocrStatus] : null);
   setIfPresent(fields, 'UF_CRM_66_OCR_WARNINGS', warnings && warnings.length > 0 ? warnings : null);
   return fields;
 }
 
-module.exports = { mapToBitrixFields, toBitrixDate };
+module.exports = { mapToBitrixFields, toBitrixDate, CHEM_ELEMENTS, MICRO_FIELD_MAP };

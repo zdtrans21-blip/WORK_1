@@ -4,7 +4,8 @@ const { recognizeProtocol } = require('./services/llm');
 const { parseLlmResponse } = require('./services/parser');
 const { validate } = require('./services/validator');
 const { mapToBitrixFields } = require('./services/fieldMapper');
-const { buildRows, buildFullReport, buildDeviationsReport } = require('./services/reportBuilder');
+const { buildRows, buildFullReport, buildDeviationsReport, buildChangesReport } = require('./services/reportBuilder');
+const { mergeWithExistingNorms } = require('./services/normMerge');
 const { itemIdFromDocumentId } = require('./services/documentId');
 
 const ENTITY_TYPE_ID = 1068;
@@ -37,6 +38,7 @@ async function handleActivityRequest(req, res) {
   let errorMessage = '';
   let reportFull = '';
   let reportDeviations = '';
+  let changesReport = '';
 
   try {
     if (!domain || !accessToken || !eventToken) {
@@ -61,6 +63,7 @@ async function handleActivityRequest(req, res) {
     errorMessage = result.errorMessage || '';
     reportFull = result.reportFull || '';
     reportDeviations = result.reportDeviations || '';
+    changesReport = result.changesReport || '';
   } catch (err) {
     ocrStatus = 'error';
     errorMessage = err.message;
@@ -79,6 +82,7 @@ async function handleActivityRequest(req, res) {
         error_message: errorMessage,
         report_full: reportFull,
         report_deviations: reportDeviations,
+        changes_report: changesReport,
       },
     );
   } catch (sendErr) {
@@ -116,19 +120,26 @@ async function recognizeAndFillItem({ domain, accessToken, itemId, sourceField, 
     return { ocrStatus: 'error', warnings: [], errorMessage: parsed.error };
   }
 
-  const { chemistry, microstructureStatus, warnings } = validate(parsed.data);
+  // Norm is protected once the item already has one (typed from the
+  // protocol, or hand-corrected after a bad OCR read) — merge keeps the
+  // stored norm and only ever refreshes fact from this recognition run.
+  const merged = mergeWithExistingNorms(item, parsed.data);
+  const { chemistry, microstructureStatus, warnings } = validate(merged);
   const fields = mapToBitrixFields({
     general: parsed.data.general,
     chemistry,
-    microstructure: parsed.data.microstructure,
+    microstructure: merged.microstructure,
     microstructureStatus,
     ocrStatus: warnings.length > 0 ? 'partial' : 'success',
     warnings,
+    chemNormLocked: merged.chemNormLocked,
+    microNormLocked: merged.microNormLocked,
   });
 
-  const reportRows = buildRows({ chemistry, microstructure: parsed.data.microstructure, microstructureStatus });
+  const reportRows = buildRows({ chemistry, microstructure: merged.microstructure, microstructureStatus });
   const reportFull = buildFullReport(reportRows);
   const reportDeviations = buildDeviationsReport(reportRows);
+  const changesReport = buildChangesReport({ oldItem: item, chemistry, microstructure: merged.microstructure, microstructureStatus });
 
   try {
     await bitrix.updateSmartProcessItem(domain, accessToken, ENTITY_TYPE_ID, itemId, fields);
@@ -140,6 +151,7 @@ async function recognizeAndFillItem({ domain, accessToken, itemId, sourceField, 
       errorMessage: `Recognition succeeded but crm.item.update failed: ${updateErr.message}`,
       reportFull,
       reportDeviations,
+      changesReport,
     };
   }
 
@@ -150,6 +162,7 @@ async function recognizeAndFillItem({ domain, accessToken, itemId, sourceField, 
     errorMessage: '',
     reportFull,
     reportDeviations,
+    changesReport,
   };
 }
 

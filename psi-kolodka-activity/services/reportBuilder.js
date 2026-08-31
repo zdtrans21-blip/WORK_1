@@ -1,3 +1,5 @@
+const { CHEM_ELEMENTS, MICRO_FIELD_MAP } = require('./fieldMapper');
+
 const CHEM_LABELS = {
   C: 'Химсостав, C',
   Si: 'Химсостав, Si',
@@ -114,4 +116,62 @@ function buildDeviationsReport(rows) {
   return deviated.map(renderRow).join('\n');
 }
 
-module.exports = { buildRows, buildFullReport, buildDeviationsReport };
+function formatFactValue(v) {
+  if (v === null || v === undefined) return '—';
+  return formatValues(v);
+}
+
+function sameValue(a, b) {
+  const norm = (v) => {
+    if (v === null || v === undefined || v === '') return '';
+    if (Array.isArray(v)) return v.map(Number).join(',');
+    return String(v);
+  };
+  return norm(a) === norm(b);
+}
+
+/**
+ * Compares the item's state BEFORE this run (`oldItem`, fetched at the
+ * start of recognizeAndFillItem, before any writes) against the freshly
+ * recognized fact + recomputed deviation — one line per parameter whose
+ * fact or deviation actually changed. Only covers parameters that have a
+ * real Bitrix `_DEV` field to compare against: the 8 chemistry elements and
+ * the 5 phosphide-eutectic/cementite microstructure params.
+ */
+function buildChangesReport({ oldItem, chemistry, microstructure, microstructureStatus }) {
+  const lines = [];
+
+  for (const el of CHEM_ELEMENTS) {
+    const entry = chemistry?.[el];
+    if (!entry || entry.norm === null || entry.norm === undefined) continue;
+    const upper = el.toUpperCase();
+    const oldFact = oldItem[`UF_CRM_66_CHEM_${upper}_FACT`];
+    const oldDev = oldItem[`UF_CRM_66_CHEM_${upper}_DEV`];
+    const newFact = entry.fact;
+    const newDev = entry.dev;
+    if (sameValue(oldFact, newFact) && sameValue(oldDev, newDev)) continue;
+    lines.push(
+      `${CHEM_LABELS[el]}: факт было ${formatFactValue(oldFact)} → занесено ${formatFactValue(newFact)}; `
+      + `отклонение было ${oldDev ?? '—'} → стало ${newDev ?? '—'}`,
+    );
+  }
+
+  for (const { param, factKey, factField, devField } of MICRO_FIELD_MAP) {
+    if (!devField) continue; // no stored deviation for this param — nothing to compare
+    const entry = microstructure?.[param];
+    const newFact = entry?.[factKey];
+    const newDev = microstructureStatus?.[param] ?? null;
+    const oldFact = oldItem[factField];
+    const oldDev = oldItem[devField];
+    if (sameValue(oldFact, newFact) && sameValue(oldDev, newDev)) continue;
+    lines.push(
+      `${MICRO_CODE_LABELS[param]}: факт было ${formatFactValue(oldFact)} → занесено ${formatFactValue(newFact)}; `
+      + `отклонение было ${oldDev ?? '—'} → стало ${newDev ?? '—'}`,
+    );
+  }
+
+  if (lines.length === 0) return 'Изменений нет';
+  return lines.join('\n');
+}
+
+module.exports = { buildRows, buildFullReport, buildDeviationsReport, buildChangesReport };

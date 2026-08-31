@@ -1,19 +1,13 @@
 const bitrix = require('./services/bitrix');
 const { parseNormRange, computeDeviation, validateCodeSet } = require('./services/validator');
+const { CHEM_ELEMENTS, MICRO_FIELD_MAP } = require('./services/fieldMapper');
 const { itemIdFromDocumentId } = require('./services/documentId');
 
 const ENTITY_TYPE_ID = 1068;
-const CHEM_ELEMENTS = ['C', 'Si', 'Mn', 'S', 'P', 'Cr', 'Ni', 'Cu'];
 
 // Only microstructure parameters that actually have a Bitrix _DEV field
 // (graphite_form/graphite_distribution/perlite_type don't — see fieldMapper.js).
-const CODE_DEV_PARAMS = [
-  { normField: 'UF_CRM_66_MICRO_PHOSEUT_FORM_NORM', factField: 'UF_CRM_66_MICRO_PHOSEUT_FORM_FACT', devField: 'UF_CRM_66_MICRO_PHOSEUT_FORM_DEV' },
-  { normField: 'UF_CRM_66_MICRO_PHOSEUT_AREA_NORM', factField: 'UF_CRM_66_MICRO_PHOSEUT_AREA_FACT', devField: 'UF_CRM_66_MICRO_PHOSEUT_AREA_DEV' },
-  { normField: 'UF_CRM_66_MICRO_PHOSEUT_DIST_NORM', factField: 'UF_CRM_66_MICRO_PHOSEUT_DIST_FACT', devField: 'UF_CRM_66_MICRO_PHOSEUT_DIST_DEV' },
-  { normField: 'UF_CRM_66_MICRO_CEMENT_PCT_NORM', factField: 'UF_CRM_66_MICRO_CEMENT_PCT_FACT', devField: 'UF_CRM_66_MICRO_CEMENT_PCT_DEV' },
-  { normField: 'UF_CRM_66_MICRO_CEMENT_AREA_NORM', factField: 'UF_CRM_66_MICRO_CEMENT_AREA_FACT', devField: 'UF_CRM_66_MICRO_CEMENT_AREA_DEV' },
-];
+const CODE_DEV_PARAMS = MICRO_FIELD_MAP.filter((p) => p.devField);
 
 function toNumberArray(raw) {
   return (Array.isArray(raw) ? raw : [])
