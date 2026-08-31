@@ -135,6 +135,11 @@ function buildRecalcBody(appUrl) {
       status: { Name: 'Статус пересчёта', Type: 'string' },
       error_message: { Name: 'Текст ошибки', Type: 'string' },
       recalculated: { Name: 'Пересчитанные поля', Type: 'string' },
+      report: {
+        Name: 'Отчёт: все параметры (норма/факт/отклонение)',
+        Type: 'text',
+        Description: 'То же самое, что report_full у основной активити: каждый параметр с нормой на отдельной строке, обычный текст, статус отмечен эмодзи (✅ в норме, ⚠️ отклонение). Строится по текущим значениям норма/факт в карточке — то есть по уже поправленным вручную данным.',
+      },
     },
     documentType: DOCUMENT_TYPE,
   };

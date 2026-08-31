@@ -1,5 +1,7 @@
 const bitrix = require('./services/bitrix');
-const { parseNormRange, computeDeviation, validateCodeSet } = require('./services/validator');
+const { validate } = require('./services/validator');
+const { readStoredRecognition } = require('./services/storedRecognition');
+const { buildRows, buildFullReport } = require('./services/reportBuilder');
 const { CHEM_ELEMENTS, MICRO_FIELD_MAP } = require('./services/fieldMapper');
 const { itemIdFromDocumentId } = require('./services/documentId');
 
@@ -7,42 +9,24 @@ const ENTITY_TYPE_ID = 1068;
 
 // Only microstructure parameters that actually have a Bitrix _DEV field
 // (graphite_form/graphite_distribution/perlite_type don't — see fieldMapper.js).
-const CODE_DEV_PARAMS = MICRO_FIELD_MAP.filter((p) => p.devField);
+const DEV_MICRO_PARAMS = MICRO_FIELD_MAP.filter((p) => p.devField);
 
-function toNumberArray(raw) {
-  return (Array.isArray(raw) ? raw : [])
-    .map((v) => Number(v))
-    .filter((n) => !Number.isNaN(n));
-}
-
-/**
- * Re-derives every chemistry/microstructure `_DEV` field from whatever is
- * currently stored in `_NORM`/`_FACT` — for when someone hand-corrects a
- * misread OCR value and needs the deviation/status recomputed without
- * re-running the whole LLM recognition.
- */
-function recalcFields(item) {
+/** Builds the crm.item.update payload — just the _DEV fields that changed. */
+function buildDevFields(chemistry, microstructureStatus) {
   const fields = {};
   const recalculated = [];
 
   for (const el of CHEM_ELEMENTS) {
+    const entry = chemistry[el];
+    if (!entry || entry.norm === null || entry.dev === null || entry.dev === undefined) continue;
     const upper = el.toUpperCase();
-    const normRaw = item[`UF_CRM_66_CHEM_${upper}_NORM`];
-    if (normRaw === null || normRaw === undefined || normRaw === '') continue;
-    const factRaw = item[`UF_CRM_66_CHEM_${upper}_FACT`];
-    const fact = factRaw === null || factRaw === undefined ? null : parseFloat(factRaw);
-    const dev = computeDeviation(parseNormRange(normRaw), fact);
-    if (dev === null) continue;
-    fields[`UF_CRM_66_CHEM_${upper}_DEV`] = dev;
+    fields[`UF_CRM_66_CHEM_${upper}_DEV`] = entry.dev;
     recalculated.push(`chemistry.${el}`);
   }
 
-  for (const { normField, factField, devField } of CODE_DEV_PARAMS) {
-    const normCodes = toNumberArray(item[normField]);
-    if (normCodes.length === 0) continue;
-    const factCodes = toNumberArray(item[factField]);
-    const dev = validateCodeSet(normCodes, factCodes);
-    if (dev === null) continue;
+  for (const { param, devField } of DEV_MICRO_PARAMS) {
+    const dev = microstructureStatus[param];
+    if (dev === null || dev === undefined) continue;
     fields[devField] = dev;
     recalculated.push(devField);
   }
@@ -64,6 +48,7 @@ async function handleRecalcRequest(req, res) {
   let status = 'error';
   let errorMessage = '';
   let recalculated = [];
+  let report = '';
 
   try {
     if (!domain || !accessToken || !eventToken) {
@@ -74,11 +59,18 @@ async function handleRecalcRequest(req, res) {
     }
 
     const item = await bitrix.getSmartProcessItem(domain, accessToken, ENTITY_TYPE_ID, itemId);
-    const result = recalcFields(item);
-    recalculated = result.recalculated;
+    const stored = readStoredRecognition(item);
+    const { chemistry, microstructureStatus } = validate(stored);
 
-    if (Object.keys(result.fields).length > 0) {
-      await bitrix.updateSmartProcessItem(domain, accessToken, ENTITY_TYPE_ID, itemId, result.fields);
+    // Same formatting as the main activity's report_full — human-readable
+    // labels, ✅/⚠️ per row — not raw field codes.
+    const rows = buildRows({ chemistry, microstructure: stored.microstructure, microstructureStatus });
+    report = buildFullReport(rows);
+
+    const { fields, recalculated: changed } = buildDevFields(chemistry, microstructureStatus);
+    recalculated = changed;
+    if (Object.keys(fields).length > 0) {
+      await bitrix.updateSmartProcessItem(domain, accessToken, ENTITY_TYPE_ID, itemId, fields);
     }
     status = 'success';
   } catch (err) {
@@ -97,6 +89,7 @@ async function handleRecalcRequest(req, res) {
         status,
         error_message: errorMessage,
         recalculated: recalculated.join(', '),
+        report,
       },
     );
   } catch (sendErr) {

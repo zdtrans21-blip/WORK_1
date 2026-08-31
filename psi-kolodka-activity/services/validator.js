@@ -85,7 +85,10 @@ function validateCodeSet(normCodes, factCodes) {
   const normSet = new Set(normCodes);
   const outOfNorm = (factCodes || []).filter((code) => !normSet.has(code));
   if (outOfNorm.length === 0) return 'в норме';
-  return `отклонение: код ${outOfNorm.join(', ')} не в норме`;
+  // No "отклонение: " prefix here — callers already label this as the
+  // deviation (report lines, the Bitrix _DEV field itself), so a prefix
+  // would just double up as "отклонение: отклонение: код ... не в норме".
+  return `код ${outOfNorm.join(', ')} не в норме`;
 }
 
 /**
