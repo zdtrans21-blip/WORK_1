@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const axios = require('axios');
 
 const VIBECODE_BASE = 'https://vibecode.bitrix24.tech';
-const ACTIVITY_CODE = 'psi_kolodka_recognizer';
+const DOCUMENT_TYPE = ['crm', 'Bitrix\\Crm\\Integration\\BizProc\\Document\\Dynamic', 'DYNAMIC_1068'];
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -45,101 +45,116 @@ async function obtainSessionToken(appKey) {
   throw new Error('Тайм-аут ожидания OAuth-авторизации (10 минут)');
 }
 
-function buildProperties() {
+function buildRecognizerBody(appUrl) {
   return {
-    llm_api_url: {
-      Name: 'API URL провайдера LLM',
-      Type: 'string',
-      Required: 'Y',
-      Default: 'https://api.openai.com/v1/chat/completions',
-    },
-    llm_model: {
-      Name: 'Модель LLM',
-      Type: 'string',
-      Required: 'Y',
-      Default: 'gpt-4o',
-    },
-    llm_api_key: {
-      Name: 'API-ключ LLM',
-      Type: 'string',
-      Required: 'Y',
-    },
-    item_id: {
-      Name: 'ID элемента смарт-процесса',
-      Type: 'string',
-      Required: 'N',
-      Description: 'Обычно не нужно — активити берёт ID элемента, на котором запущен БП, автоматически. Заполняйте, только если нужно распознать протокол другого элемента.',
-    },
-    source_field_code: {
-      Name: 'Код поля с PDF протокола',
-      Type: 'string',
-      Required: 'Y',
-      Default: 'UF_CRM_66_SOURCE_PDF',
-      Description: 'Символьный код файлового поля смарт-процесса, откуда брать PDF протокола.',
-    },
-  };
-}
-
-function buildReturnProperties() {
-  return {
-    ocr_status: { Name: 'Статус распознавания', Type: 'string' },
-    ocr_warnings: { Name: 'Поля под сомнением', Type: 'string' },
-    error_message: { Name: 'Текст ошибки', Type: 'string' },
-    report_full: {
-      Name: 'Отчёт: все параметры (норма/факт/отклонение)',
-      Type: 'text',
-      Description: 'Каждый параметр с нормой на отдельной строке: название, норма, факт, отклонение. Обычный текст, без HTML — статус отмечен эмодзи (✅ в норме, ⚠️ отклонение).',
-    },
-    report_deviations: {
-      Name: 'Отчёт: только отклонения от нормы',
-      Type: 'text',
-      Description: 'То же самое, но только параметры, у которых факт вышел за пределы нормы. Если отклонений нет — текст "✅ Отклонений не выявлено".',
-    },
-  };
-}
-
-function buildActivityBody(appUrl) {
-  const handler = `${appUrl.replace(/\/$/, '')}/handler`;
-  return {
-    code: ACTIVITY_CODE,
+    code: 'psi_kolodka_recognizer',
     name: { ru: '🔬 ПСИ Колодка: распознать протокол', en: '🔬 PSI Kolodka: recognize protocol' },
     description:
       'Скачивает PDF протокола ПСИ из поля смарт-процесса, распознаёт химический состав и микроструктуру через LLM, валидирует соответствие нормам, записывает данные в поля карточки.',
-    handler,
+    handler: `${appUrl.replace(/\/$/, '')}/handler`,
     authUserId: 1,
     // 'Y' = "Ожидание ответа" checkbox in the BP designer is user-editable
     // and (checked) blocks downstream nodes until bizproc.event.send fires —
     // matches how this activity actually completes (immediate HTTP ack,
     // real result delivered later via event_token).
     useSubscription: 'Y',
-    properties: buildProperties(),
-    returnProperties: buildReturnProperties(),
-    documentType: ['crm', 'Bitrix\\Crm\\Integration\\BizProc\\Document\\Dynamic', 'DYNAMIC_1068'],
+    properties: {
+      llm_api_url: {
+        Name: 'API URL провайдера LLM',
+        Type: 'string',
+        Required: 'Y',
+        Default: 'https://api.openai.com/v1/chat/completions',
+      },
+      llm_model: {
+        Name: 'Модель LLM',
+        Type: 'string',
+        Required: 'Y',
+        Default: 'gpt-4o',
+      },
+      llm_api_key: {
+        Name: 'API-ключ LLM',
+        Type: 'string',
+        Required: 'Y',
+      },
+      item_id: {
+        Name: 'ID элемента смарт-процесса',
+        Type: 'string',
+        Required: 'N',
+        Description: 'Обычно не нужно — активити берёт ID элемента, на котором запущен БП, автоматически. Заполняйте, только если нужно распознать протокол другого элемента.',
+      },
+      source_field_code: {
+        Name: 'Код поля с PDF протокола',
+        Type: 'string',
+        Required: 'Y',
+        Default: 'UF_CRM_66_SOURCE_PDF',
+        Description: 'Символьный код файлового поля смарт-процесса, откуда брать PDF протокола.',
+      },
+    },
+    returnProperties: {
+      ocr_status: { Name: 'Статус распознавания', Type: 'string' },
+      ocr_warnings: { Name: 'Поля под сомнением', Type: 'string' },
+      error_message: { Name: 'Текст ошибки', Type: 'string' },
+      report_full: {
+        Name: 'Отчёт: все параметры (норма/факт/отклонение)',
+        Type: 'text',
+        Description: 'Каждый параметр с нормой на отдельной строке: название, норма, факт, отклонение. Обычный текст, без HTML — статус отмечен эмодзи (✅ в норме, ⚠️ отклонение).',
+      },
+      report_deviations: {
+        Name: 'Отчёт: только отклонения от нормы',
+        Type: 'text',
+        Description: 'То же самое, но только параметры, у которых факт вышел за пределы нормы. Если отклонений нет — текст "✅ Отклонений не выявлено".',
+      },
+    },
+    documentType: DOCUMENT_TYPE,
   };
 }
 
+function buildRecalcBody(appUrl) {
+  return {
+    code: 'psi_kolodka_recalc_deviation',
+    name: { ru: '🔁 ПСИ Колодка: пересчитать отклонение', en: '🔁 PSI Kolodka: recalc deviation' },
+    description:
+      'Без LLM: перечитывает уже сохранённые поля норма/факт химсостава и микроструктуры и пересчитывает поля отклонения. Для случаев, когда OCR ошибся и норму/факт поправили вручную.',
+    handler: `${appUrl.replace(/\/$/, '')}/recalc-handler`,
+    authUserId: 1,
+    useSubscription: 'Y',
+    properties: {
+      item_id: {
+        Name: 'ID элемента смарт-процесса',
+        Type: 'string',
+        Required: 'N',
+        Description: 'Обычно не нужно — активити берёт ID элемента, на котором запущен БП, автоматически. Заполняйте, только если нужно пересчитать другой элемент.',
+      },
+    },
+    returnProperties: {
+      status: { Name: 'Статус пересчёта', Type: 'string' },
+      error_message: { Name: 'Текст ошибки', Type: 'string' },
+      recalculated: { Name: 'Пересчитанные поля', Type: 'string' },
+    },
+    documentType: DOCUMENT_TYPE,
+  };
+}
+
+const ACTIVITIES = [
+  { code: 'psi_kolodka_recognizer', build: buildRecognizerBody },
+  { code: 'psi_kolodka_recalc_deviation', build: buildRecalcBody },
+];
+
 /**
- * Registers or updates the activity via VibeCode's bizproc-activities
+ * Registers or updates one activity via VibeCode's bizproc-activities
  * wrapper. Tries PATCH (update) first since re-running install.js after the
  * initial deploy is the common case (e.g. adding new returnProperties) —
  * falls back to POST (create) the first time, when the activity doesn't
  * exist yet.
  */
-async function registerActivity({ appKey, sessionToken, appUrl }) {
-  const body = buildActivityBody(appUrl);
-  const headers = {
-    'X-Api-Key': appKey,
-    Authorization: `Bearer ${sessionToken}`,
-    'Content-Type': 'application/json',
-  };
-
+async function registerActivity({ code, body, headers }) {
   try {
-    const { data } = await axios.patch(`${VIBECODE_BASE}/v1/bizproc-activities/${ACTIVITY_CODE}`, body, { headers });
+    const { data } = await axios.patch(`${VIBECODE_BASE}/v1/bizproc-activities/${code}`, body, { headers });
     return data;
   } catch (err) {
-    const code = err.response?.data?.error?.code;
-    if (err.response?.status !== 404 && code !== 'NOT_FOUND') throw err;
-    console.log('Активити ещё не зарегистрировано — создаю (PATCH вернул "не найдено").');
+    const errCode = err.response?.data?.error?.code;
+    if (err.response?.status !== 404 && errCode !== 'NOT_FOUND') throw err;
+    console.log(`Активити ${code} ещё не зарегистрировано — создаю (PATCH вернул "не найдено").`);
     const { data } = await axios.post(`${VIBECODE_BASE}/v1/bizproc-activities`, body, { headers });
     return data;
   }
@@ -149,17 +164,25 @@ async function main() {
   const appKey = requireEnv('VIBE_APP_KEY');
   const appUrl = requireEnv('APP_URL');
   const sessionToken = process.env.VIBE_APP_SESSION_TOKEN || (await obtainSessionToken(appKey));
+  const headers = {
+    'X-Api-Key': appKey,
+    Authorization: `Bearer ${sessionToken}`,
+    'Content-Type': 'application/json',
+  };
 
-  const result = await registerActivity({ appKey, sessionToken, appUrl });
-
-  if (result.success) {
-    console.log('\n✅ Активити зарегистрировано:', ACTIVITY_CODE);
-    console.log(JSON.stringify(result.data, null, 2));
-  } else {
-    console.error('\n❌ Ошибка регистрации активити:');
-    console.error(JSON.stringify(result.error, null, 2));
-    process.exitCode = 1;
+  let hadError = false;
+  for (const { code, build } of ACTIVITIES) {
+    const result = await registerActivity({ code, body: build(appUrl), headers });
+    if (result.success) {
+      console.log(`\n✅ Активити зарегистрировано: ${code}`);
+      console.log(JSON.stringify(result.data, null, 2));
+    } else {
+      hadError = true;
+      console.error(`\n❌ Ошибка регистрации активити ${code}:`);
+      console.error(JSON.stringify(result.error, null, 2));
+    }
   }
+  if (hadError) process.exitCode = 1;
 }
 
 main().catch((err) => {

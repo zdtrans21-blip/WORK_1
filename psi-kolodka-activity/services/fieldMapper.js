@@ -48,7 +48,7 @@ const MICRO_FIELD_MAP = [
   { param: 'graphite_form', normKey: 'norm_codes', normField: 'UF_CRM_66_MICRO_GRAPH_FORM_NORM', factKey: 'fact_codes', factField: 'UF_CRM_66_MICRO_GRAPH_FORM_FACT' },
   { param: 'graphite_length', normKey: 'norm_range', normField: 'UF_CRM_66_MICRO_GRAPH_LEN_NORM', factKey: 'fact_values', factField: 'UF_CRM_66_MICRO_GRAPH_LEN_FACT' },
   { param: 'graphite_distribution', normKey: 'norm_codes', normField: 'UF_CRM_66_MICRO_GRAPH_DIST_NORM', factKey: 'fact_codes', factField: 'UF_CRM_66_MICRO_GRAPH_DIST_FACT' },
-  { param: 'graphite_quantity', normKey: 'norm_range', normField: 'UF_CRM_66_MICRO_GRAPH_QTY_NORM', factKey: 'fact_values', factField: 'UF_CRM_66_UF_MICRO_GRAPH_QTY_FACT' },
+  { param: 'graphite_quantity', normKey: 'norm_range', normField: 'UF_CRM_66_MICRO_GRAPH_QTY_NORM', factKey: 'fact_values', factField: 'UF_CRM_66_MICRO_GRAPH_QTY_FACT' },
   { param: 'perlite_type', normKey: 'norm_codes', normField: 'UF_CRM_66_MICRO_PERL_TYPE_NORM', factKey: 'fact_codes', factField: 'UF_CRM_66_MICRO_PERL_TYPE_FACT' },
   { param: 'perlite_content', normKey: 'norm_range', normField: 'UF_CRM_66_MICRO_PERL_PCT_NORM', factKey: 'fact_value', factField: 'UF_CRM_66_MICRO_PERL_PCT_FACT' },
   { param: 'perlite_dispersion', normKey: 'norm_range', normField: 'UF_CRM_66_MICRO_PERL_DISPER_NORM', factKey: 'fact_value', factField: 'UF_CRM_66_MICRO_PERL_DISPER_FACT' },

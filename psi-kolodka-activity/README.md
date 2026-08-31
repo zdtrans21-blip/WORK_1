@@ -11,18 +11,20 @@
 ## Структура
 
 ```
-index.js                    Express-сервер, роут POST /handler
-install.js                  Регистрирует активити через bizproc.activity.add
-handler.js                  Обрабатывает вызов активити из бизнес-процесса
+index.js                    Express-сервер, роуты POST /handler и POST /recalc-handler
+install.js                  Регистрирует обе активити через bizproc.activity.add
+handler.js                  Основная активити: распознавание протокола (OCR через LLM)
+recalcHandler.js            Активити «Пересчитать отклонение»: без LLM, только norm/fact → dev
 services/
   bitrix.js                 Обёртка classic REST (crm.item.*, bizproc.event.send) + скачивание файла по urlMachine
+  documentId.js              Разбор document_id → item_id (общее для обеих активити)
   pdfProcessor.js            PDF → массив PNG-страниц (макс. 5)
   imagePreprocessor.js       pdftoppm/pdf2pic @300dpi + sharp-препроцессинг
   llm.js                     Запрос к LLM (OpenAI-совместимый или Anthropic формат)
   parser.js                  Разбор JSON-ответа LLM
   validator.js               Парсинг норм, вычисление отклонений факта от нормы
   fieldMapper.js              Результат → поля crm.item.update
-  reportBuilder.js            Результат → HTML-отчёты для return_values (report_full/report_deviations)
+  reportBuilder.js            Результат → текстовые отчёты для return_values (report_full/report_deviations)
 prompts/psi_kolodka.js       Системный промт для LLM
 scripts/testRecognition.js   Локальный тест на файле test-data/test-protocol.pdf
 ```
@@ -124,6 +126,26 @@ npm install
 `report_full` и `report_deviations` — обычный текст (без HTML), статус параметра показан эмодзи
 (✅ в норме, ⚠️ отклонение, ℹ️ отклонение не посчитано) — подходит для вставки в любой шаг БП,
 включая комментарии, которые не рендерят HTML-разметку.
+
+## Активити «Пересчитать отклонение» (без LLM)
+
+Код `psi_kolodka_recalc_deviation`, название «🔁 ПСИ Колодка: пересчитать отклонение».
+Для случаев, когда LLM ошиблась при распознавании нормы или факта — сотрудник правит
+эти поля вручную прямо в карточке элемента, а эта активити пересчитывает поля
+отклонения (`_DEV`) заново по уже сохранённым `_NORM`/`_FACT`, без повторного OCR и
+без ключа LLM.
+
+Параметр в дизайнере — только «ID элемента смарт-процесса» (необязательно, как и у
+основной активити). Возвращает `status` (`success`/`error`), `error_message` и
+`recalculated` — список пересчитанных полей через запятую.
+
+Пересчитывает только параметры, у которых в Битрикс24 реально есть поле отклонения:
+8 элементов химсостава (`_CHEM_*_DEV`) и 5 параметров микроструктуры с кодовым
+отклонением (`_PHOSEUT_*_DEV`, `_CEMENT_*_DEV`). У `graphite_form`,
+`graphite_distribution`, `perlite_type` и у всех «диапазонных» параметров
+микроструктуры (`graphite_length`, `graphite_quantity`, `perlite_content`,
+`perlite_dispersion`) в смарт-процессе нет отдельного поля отклонения — пересчитывать
+для них нечего.
 
 ## Локальный тест распознавания
 
