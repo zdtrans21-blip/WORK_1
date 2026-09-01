@@ -9,6 +9,7 @@ const CHEM_LABELS = {
   Cr: 'Химсостав, Cr',
   Ni: 'Химсостав, Ni',
   Cu: 'Химсостав, Cu',
+  Ca: 'Химсостав, Ca',
 };
 
 const MICRO_CODE_LABELS = {

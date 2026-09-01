@@ -1,4 +1,4 @@
-const CHEM_ELEMENTS = ['C', 'Si', 'Mn', 'S', 'P', 'Cr', 'Ni', 'Cu'];
+const CHEM_ELEMENTS = ['C', 'Si', 'Mn', 'S', 'P', 'Cr', 'Ni', 'Cu', 'Ca'];
 
 /** "16.12.2025" -> "2025-12-16" (Bitrix date field format). Returns null if unparseable. */
 function toBitrixDate(ddmmyyyy) {

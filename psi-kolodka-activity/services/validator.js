@@ -1,4 +1,4 @@
-const CHEM_ELEMENTS = ['C', 'Si', 'Mn', 'S', 'P', 'Cr', 'Ni', 'Cu'];
+const { CHEM_ELEMENTS } = require('./fieldMapper');
 
 function toNumber(str) {
   return parseFloat(String(str).replace(',', '.'));
